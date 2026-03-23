@@ -6,6 +6,8 @@
 <title>Viridian — Sales & Expenses Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -29,7 +31,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 }
 
 /* AUTH */
-#authScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#0a120e 0%,#0f2318 40%,#0a1a10 100%);display:flex;align-items:center;justify-content:center;padding:20px}
+#authScreen{display:none!important;position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#0a120e 0%,#0f2318 40%,#0a1a10 100%);display:flex;align-items:center;justify-content:center;padding:20px}
 #authScreen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 30% 20%,rgba(26,122,90,.15) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(26,122,90,.08) 0%,transparent 50%)}
 .auth-card{position:relative;z-index:1;width:100%;max-width:420px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:48px 40px;backdrop-filter:blur(20px);box-shadow:0 32px 80px rgba(0,0,0,.5)}
 .auth-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
@@ -53,8 +55,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .auth-footer{margin-top:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.2)}
 
 /* APP SHELL */
-#app{display:none;height:100vh;overflow:hidden}
-#app.active{display:flex}
+#app{display:flex;height:100vh;overflow:hidden}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow-y:auto}
 .sb-brand{padding:18px 16px 14px;border-bottom:1px solid var(--rule)}
 .sb-logo-row{display:flex;align-items:center;gap:10px}
@@ -254,51 +255,167 @@ tbody tr:hover{background:var(--bg)}
 .empty-title{font-family:'Fraunces',serif;font-size:16px;color:var(--ink2);margin-bottom:6px}
 .empty-sub{font-size:12px}
 
-/* RESPONSIVE */
+/* ─── MOBILE BOTTOM NAV ─── */
+.mobile-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:var(--surface);border-top:1px solid var(--rule);
+  height:58px;
+  display:none;align-items:stretch;
+}
+.mn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;border:none;background:transparent;
+  color:var(--ink3);font-family:'Plus Jakarta Sans',sans-serif;font-size:9px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;padding:6px 4px;position:relative;
+  transition:color .14s;
+}
+.mn-item.active{color:var(--green)}
+.mn-item svg{width:20px;height:20px;opacity:.6}
+.mn-item.active svg{opacity:1}
+.mn-badge{
+  position:absolute;top:6px;right:calc(50% - 14px);
+  min-width:15px;height:15px;background:var(--red);color:#fff;
+  border-radius:8px;font-size:8px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;padding:0 3px;
+}
+
+/* ─── RESPONSIVE ─── */
 @media(max-width:960px){
-  .sidebar{width:58px}
-  .sb-name,.sb-subtitle,.sb-grp,.sb-lnk span,.sb-user-name,.sb-user-role{display:none}
-  .sb-lnk{justify-content:center;padding:10px}
-  .sb-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;font-size:8px}
+  /* Hide desktop sidebar, show mobile bottom nav */
+  .sidebar{display:none!important}
+  .mobile-nav{display:flex!important}
+  #app{padding-bottom:58px}
   .kpi-row-4{grid-template-columns:repeat(2,1fr)}
   .grid-65,.grid-2{grid-template-columns:1fr}
+  .topbar{padding:0 16px}
+  .topbar-sub{display:none}
 }
+
 @media(max-width:640px){
+  .rpt-controls{width:100%}
   .kpi-row-3,.kpi-row-4{grid-template-columns:1fr 1fr}
-  .page-content{padding:14px 16px}
+  .kpi-row-2{grid-template-columns:1fr 1fr}
+  .page-content{padding:12px 14px}
+  /* Modal full screen */
+  .modal-overlay{padding:0;align-items:flex-end}
+  .modal{border-radius:18px 18px 0 0;max-height:92vh;width:100%}
+  /* Topbar actions wrap */
+  .topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 14px;gap:8px}
+  .topbar-right{margin-left:0;width:100%;gap:8px}
+  .topbar-right .tb-btn{flex:1;justify-content:center;font-size:11.5px;padding:7px 10px}
+  /* Forms single column */
+  .f-row-2,.f-row-3{grid-template-columns:1fr}
+  /* Tables: card mode */
+  .mobile-card-table thead{display:none}
+  .mobile-card-table tbody tr{
+    display:block;background:var(--surface);border:1px solid var(--rule);
+    border-radius:10px;margin-bottom:8px;padding:10px 12px;
+  }
+  .mobile-card-table tbody td{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:4px 0;border-bottom:1px solid var(--surface2);font-size:12px;
+    gap:8px;
+  }
+  .mobile-card-table tbody td:last-child{border-bottom:none;padding-bottom:0}
+  .mobile-card-table tbody td::before{
+    content:attr(data-label);
+    font-size:9px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--ink3);white-space:nowrap;flex-shrink:0;
+    padding-top:2px;
+  }
+  .mobile-card-table tbody td.td-actions{justify-content:flex-end}
+  .mobile-card-table tbody td.td-actions::before{content:''}
+  /* KPI single col on tiny screens */
+  .kpi-row-4{grid-template-columns:1fr 1fr}
+  /* Reports page date inputs */
+  #pageContent [style*="display:flex"][style*="flex-wrap"]{flex-wrap:wrap}
+  /* Announcement board */
+  .ann-item{flex-wrap:wrap}
+  .ann-date{margin-left:0;margin-top:4px;width:100%}
 }
+
+@media(max-width:400px){
+  .kpi-row-3,.kpi-row-4,.kpi-row-2{grid-template-columns:1fr}
+}
+
+/* ─── DEMO MODE ─── */
+.demo-banner{
+  background:linear-gradient(90deg,#1a7a5a,#155f46);
+  color:#fff;text-align:center;padding:7px 16px;
+  font-size:11.5px;font-weight:600;letter-spacing:.04em;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  flex-shrink:0;
+}
+.demo-banner a{color:#a8d5bf;font-weight:700;text-decoration:underline;cursor:pointer}
+.demo-badge{
+  background:rgba(255,255,255,.2);border-radius:20px;
+  padding:2px 9px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+}
+.demo-limit-bar{
+  display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--ink3);margin-bottom:10px;
+}
+.demo-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.demo-dot.used{background:var(--red)}
+.demo-dot.empty{background:var(--rule)}
+/* Demo overlay modal */
+.demo-gate-overlay{
+  position:fixed;inset:0;z-index:600;
+  background:rgba(10,18,14,.82);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.demo-gate-card{
+  background:#fff;border-radius:20px;
+  max-width:420px;width:100%;padding:40px 36px;
+  text-align:center;
+  box-shadow:0 24px 80px rgba(0,0,0,.4);
+  animation:modalIn .2s ease both;
+}
+.demo-gate-icon{
+  width:64px;height:64px;border-radius:18px;
+  background:var(--green-bg);border:2px solid var(--green-mid);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;
+}
+.demo-gate-icon svg{color:var(--green)}
+.demo-gate-title{font-family:"Fraunces",serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:8px}
+.demo-gate-sub{font-size:13.5px;color:var(--ink2);line-height:1.7;margin-bottom:28px}
+.demo-gate-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;background:var(--green);color:#fff;border:none;border-radius:12px;
+  font-family:"Plus Jakarta Sans",sans-serif;font-size:14px;font-weight:700;
+  padding:14px 24px;cursor:pointer;text-decoration:none;
+  box-shadow:0 4px 20px rgba(26,122,90,.3);transition:background .15s;
+  margin-bottom:10px;
+}
+.demo-gate-btn:hover{background:var(--green2)}
+.demo-gate-dismiss{
+  background:transparent;border:none;color:var(--ink3);
+  font-family:"Plus Jakarta Sans",sans-serif;font-size:12px;
+  cursor:pointer;padding:6px;
+}
+.demo-gate-dismiss:hover{color:var(--ink)}
 </style>
 </head>
 <body>
 
 <!-- AUTH -->
-<div id="authScreen">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="auth-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
-      <div><div class="auth-brand">Viridian<span>Sales & Expenses Tracker</span></div></div>
-    </div>
-    <h2 class="auth-h">Welcome back</h2>
-    <p class="auth-sub">Sign in to access your finance dashboard</p>
-    <button class="auth-btn-google" onclick="authGoogle()">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Continue with Google
-    </button>
-    <div class="auth-divider">or sign in with email</div>
-    <div class="auth-field"><div class="auth-lbl">Email Address</div><input type="email" class="auth-inp" id="authEmail" placeholder="you@company.com"/></div>
-    <div class="auth-field"><div class="auth-lbl">Password</div><input type="password" class="auth-inp" id="authPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')authLogin()"/></div>
-    <button class="auth-btn-primary" onclick="authLogin()">Sign In</button>
-    <p class="auth-footer">Firebase config placeholder — replace FIREBASE_CONFIG object with your project keys</p>
-  </div>
-</div>
+
 
 <!-- APP -->
 <div id="app">
+  <!-- DEMO BANNER -->
+  <div class="demo-banner" style="position:fixed;top:0;left:0;right:0;z-index:400">
+    <span class="demo-badge">Demo Mode</span>
+    <span>You're exploring a live demo — limited to 3 entries per section.</span>
+    <a href="https://apricity-solutions.netlify.app" target="_blank">Book a Free Demo →</a>
+  </div>
+  <div style="height:36px;flex-shrink:0"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand">
       <div class="sb-logo-row">
         <div class="sb-client-logo" id="sbLogo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
-        <div><div class="sb-name" id="sbCompanyName">Viridian</div><div class="sb-subtitle">Finance Tracker</div></div>
+        <div><div class="sb-name" id="sbCompanyName">Viridian</div><div class="sb-subtitle">Demo Version</div></div>
       </div>
     </div>
     <div class="sb-section">
@@ -339,7 +456,7 @@ tbody tr:hover{background:var(--bg)}
         <span>Reports & Exports</span>
       </div>
     </div>
-    <div class="sb-section" id="adminNav">
+    <div class="sb-section" id="adminNav" style="display:none">
       <div class="sb-grp">System</div>
       <div class="sb-lnk" id="nav-admin" onclick="navTo('admin')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z"/></svg>
@@ -363,6 +480,52 @@ tbody tr:hover{background:var(--bg)}
     </div>
     <div class="page-content" id="pageContent"></div>
   </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mn-item active" id="mn-dashboard" onclick="navTo('dashboard');setMobileNav('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    <span>Dashboard</span>
+  </button>
+  <button class="mn-item" id="mn-income" onclick="navTo('income');setMobileNav('income')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    <span>Income</span>
+  </button>
+  <button class="mn-item" id="mn-expenses" onclick="navTo('expenses');setMobileNav('expenses')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+    <span>Expenses</span>
+  </button>
+  <button class="mn-item" id="mn-receivables" onclick="navTo('receivables');setMobileNav('receivables')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span>Receivable</span>
+    <span class="mn-badge" id="mnBadgeRec" style="display:none">0</span>
+  </button>
+  <button class="mn-item" id="mn-payables" onclick="navTo('payables');setMobileNav('payables')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    <span>Payables</span>
+    <span class="mn-badge" id="mnBadgePay" style="display:none">0</span>
+  </button>
+  <button class="mn-item" id="mn-more" onclick="toggleMobileMore()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+    <span>More</span>
+  </button>
+</nav>
+
+<!-- MOBILE MORE MENU -->
+<div id="mobileMoreMenu" style="display:none;position:fixed;bottom:58px;left:0;right:0;z-index:299;background:var(--surface);border-top:1px solid var(--rule);padding:12px 16px;gap:8px;display:none;flex-direction:column">
+  <button onclick="navTo('reports');setMobileNav('reports');toggleMobileMore()" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--bg);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Reports & Exports
+  </button>
+  <button onclick="navTo('admin');setMobileNav('admin');toggleMobileMore()" id="mobileAdminBtn" style="display:none" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--bg);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z"/></svg>
+    Admin Panel
+  </button>
+  <button onclick="doLogout()" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--red-mid);border-radius:10px;background:var(--red-bg);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;color:var(--red);cursor:pointer;text-align:left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sign Out
+  </button>
 </div>
 
 <!-- MODAL -->
@@ -394,6 +557,83 @@ const FIREBASE_CONFIG = {
   appId: "YOUR_APP_ID"
 };
 /* ═══════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════
+   DEMO MODE CONFIGURATION
+   ═══════════════════════════════════════════════════ */
+const DEMO_MODE = true;
+const DEMO_LIMIT = 3;
+const DEMO_URL = 'https://apricity-solutions.netlify.app';
+
+// Check if a type has hit the demo limit (counts only user-added entries, not sample data)
+// We track user-added entries separately
+const DEMO_COUNTS = { income: 0, expenses: 0, receivables: 0, payables: 0 };
+
+function demoCheck(type) {
+  if (!DEMO_MODE) return true; // not demo, always allow
+  if (DEMO_COUNTS[type] >= DEMO_LIMIT) {
+    showDemoGate(type);
+    return false;
+  }
+  return true;
+}
+
+function demoIncrement(type) {
+  if (DEMO_MODE) DEMO_COUNTS[type]++;
+}
+
+function showDemoGate(type) {
+  // Remove existing gate if any
+  const ex = document.getElementById('__demoGate');
+  if (ex) ex.remove();
+
+  const typeLabels = { income:'Income', expenses:'Expenses', receivables:'Receivables', payables:'Payables' };
+  const label = typeLabels[type] || type;
+
+  const gate = document.createElement('div');
+  gate.id = '__demoGate';
+  gate.className = 'demo-gate-overlay';
+  gate.innerHTML = `
+    <div class="demo-gate-card">
+      <div class="demo-gate-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="demo-gate-title">Demo limit reached</div>
+      <div class="demo-gate-sub">
+        You've used all <strong>${DEMO_LIMIT} ${label}</strong> entries available in the demo.<br><br>
+        Book a free consultation and we'll set up the full version for your business — no limits, Firebase-powered, and customized to your needs.
+      </div>
+      <a href="${DEMO_URL}" target="_blank" class="demo-gate-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        Book a Free Demo
+      </a>
+      <button class="demo-gate-dismiss" onclick="document.getElementById('__demoGate').remove()">
+        Maybe later
+      </button>
+    </div>`;
+  document.body.appendChild(gate);
+}
+
+function demoLimitBar(type) {
+  if (!DEMO_MODE) return '';
+  const used = DEMO_COUNTS[type];
+  const dots = Array.from({length: DEMO_LIMIT}, (_, i) =>
+    `<div class="demo-dot ${i < used ? 'used' : 'empty'}"></div>`
+  ).join('');
+  const remaining = DEMO_LIMIT - used;
+  return `<div class="demo-limit-bar">
+    ${dots}
+    <span>${remaining > 0 ? remaining + ` of ${DEMO_LIMIT} entries remaining` : '<span style="color:var(--red);font-weight:700">Demo limit reached</span>'}</span>
+    ${remaining === 0 ? `<a href="${DEMO_URL}" target="_blank" style="margin-left:auto;font-size:10px;font-weight:700;color:var(--green);text-decoration:underline">Book full version →</a>` : ''}
+  </div>`;
+}
+/* ═══════════════════════════════════════════════════ */
+
 
 /* ═══════════════════════════════════════════════════
    SCHEDULING ENGINE — CORE CONSTANTS
@@ -487,7 +727,7 @@ function addPeriod(dateStr, frequency, customDays) {
    ═══════════════════════════════════════════════════ */
 const APP = {
   user: { name:'Admin User', email:'admin@viridian.com', role:'admin', initials:'AU' },
-  company: { name:'Viridian Sales and Expenses Tracker', logo:null },
+  company: { name:'Viridian Demo', logo:null, businessType:'service' },
   chartOfAccounts: {
     income: ['Sales / Revenue','Service Fee','Consultation','Retainer','Commission','Other Income'],
     expense: ['Marketing','Software & Tools','Travel','Payroll','Utilities','Rent','Office Supplies','Professional Fees','Other Expense']
@@ -690,34 +930,23 @@ function buildAnnouncements() {
 /* ═══════════════════════════════════════════════════
    AUTH
    ═══════════════════════════════════════════════════ */
-function authGoogle() {
-  toast('Google Sign-in requires Firebase config. Using demo mode.', true);
-  setTimeout(() => bootApp(), 600);
-}
-function authLogin() {
-  const email = document.getElementById('authEmail').value.trim();
-  const pass = document.getElementById('authPass').value;
-  if (!email || !pass) { toast('Please enter email and password.', true); return; }
-  APP.user.email = email;
-  APP.user.name = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-  APP.user.initials = APP.user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  bootApp();
-}
+function authGoogle() { bootApp(); }
+function authLogin() { bootApp(); }
 function bootApp() {
   runSchedulingEngine();
-  document.getElementById('authScreen').style.display = 'none';
-  document.getElementById('app').classList.add('active');
-  document.getElementById('sbUserName').textContent = APP.user.name;
-  document.getElementById('sbUserRole').textContent = APP.user.role === 'admin' ? 'Administrator' : 'Staff';
-  document.getElementById('sbAvatar').textContent = APP.user.initials;
-  document.getElementById('sbCompanyName').textContent = APP.company.name.split(' ')[0];
-  if (APP.user.role !== 'admin') document.getElementById('adminNav').style.display = 'none';
+  // Demo: no auth screen to hide
+  document.getElementById('sbUserName').textContent = 'Demo User';
+  document.getElementById('sbUserRole').textContent = 'Demo Mode';
+  document.getElementById('sbAvatar').textContent = 'D';
+  document.getElementById('sbCompanyName').textContent = 'Viridian';
+  // Hide admin nav always in demo
+  document.getElementById('adminNav').style.display = 'none';
+  const mab=document.getElementById('mobileAdminBtn'); if(mab)mab.style.display='none';
   updateBadges();
   navTo('dashboard');
 }
 function doLogout() {
-  document.getElementById('app').classList.remove('active');
-  document.getElementById('authScreen').style.display = 'flex';
+  window.location.reload();
 }
 
 /* ═══════════════════════════════════════════════════
@@ -727,6 +956,9 @@ function navTo(page) {
   document.querySelectorAll('.sb-lnk').forEach(l => l.classList.remove('active'));
   const el = document.getElementById('nav-' + page);
   if (el) el.classList.add('active');
+  setMobileNav(page);
+  // Close more menu if open
+  const mm=document.getElementById('mobileMoreMenu'); if(mm) mm.style.display='none';
   APP.currentPage = page;
   const pages = { dashboard:renderDashboard, income:renderIncome, expenses:renderExpenses, receivables:renderReceivables, payables:renderPayables, reports:renderReports, admin:renderAdmin };
   if (pages[page]) pages[page]();
@@ -744,7 +976,32 @@ function updateBadges() {
   const bp = document.getElementById('badgePay');
   br.style.display = recAlert > 0 ? 'flex' : 'none'; br.textContent = recAlert;
   bp.style.display = payAlert > 0 ? 'flex' : 'none'; bp.textContent = payAlert;
+  // Sync mobile badges
+  const mr=document.getElementById('mnBadgeRec'), mp=document.getElementById('mnBadgePay');
+  if(mr){mr.style.display=recAlert>0?'flex':'none'; mr.textContent=recAlert;}
+  if(mp){mp.style.display=payAlert>0?'flex':'none'; mp.textContent=payAlert;}
 }
+
+function setMobileNav(page){
+  document.querySelectorAll('.mn-item').forEach(b=>b.classList.remove('active'));
+  const el=document.getElementById('mn-'+page);
+  if(el) el.classList.add('active');
+}
+
+function toggleMobileMore(){
+  const m=document.getElementById('mobileMoreMenu');
+  if(!m) return;
+  m.style.display = m.style.display==='flex' ? 'none' : 'flex';
+}
+
+// Close more menu when clicking outside
+document.addEventListener('click',function(e){
+  const menu=document.getElementById('mobileMoreMenu');
+  if(menu&&menu.style.display==='flex'){
+    const nav=document.getElementById('mobileNav');
+    if(!menu.contains(e.target)&&!nav.contains(e.target)) menu.style.display='none';
+  }
+});
 
 /* ═══════════════════════════════════════════════════
    MODAL
@@ -865,6 +1122,20 @@ function renderDashboard() {
       </div>
     </div>`;
   initCharts();
+  // Demo CTA card at bottom
+  const pc = document.getElementById('pageContent');
+  if(pc) {
+    const cta = document.createElement('div');
+    cta.style.cssText = 'margin-top:16px;background:linear-gradient(135deg,#0f2318,#1a7a5a);border-radius:14px;padding:24px 28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap';
+    cta.innerHTML = '<div style="flex:1;min-width:200px">'
+      +'<div style="font-family:sans-serif;font-size:18px;font-weight:600;color:#fff;margin-bottom:4px">Like what you see?</div>'
+      +'<div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.6">Get the full version with Firebase sync, unlimited entries, real PDF/XLS exports, and custom branding for your business.</div>'
+      +'</div>'
+      +'<a href="https://apricity-solutions.netlify.app" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--green);padding:12px 22px;border-radius:10px;font-weight:700;font-size:13.5px;text-decoration:none;flex-shrink:0">'
+      +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      +'Book a Free Demo</a>';
+    pc.appendChild(cta);
+  }
 }
 
 function initCharts() {
@@ -894,7 +1165,7 @@ function initCharts() {
    ═══════════════════════════════════════════════════ */
 function renderIncome() {
   const total=APP.income.reduce((s,e)=>s+e.amount,0);
-  setTopbar('Income',`${APP.income.length} entries`,`<button class="tb-btn primary" onclick="openIncomeModal(null)">+ New Income Entry</button>`);
+  setTopbar('Income',`${APP.income.length} entries`,`<button class='tb-btn primary' onclick='openIncomeModal(null)'>+ New Income Entry</button>`);
   document.getElementById('pageContent').innerHTML=`
     <div class="kpi-row kpi-row-3">
       <div class="kpi"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-lbl">Total Income</div><div class="kpi-val pos">${fmt(total)}</div><div class="kpi-tag">All recorded income</div></div>
@@ -902,7 +1173,7 @@ function renderIncome() {
       <div class="kpi"><div class="kpi-accent" style="background:var(--green-mid)"></div><div class="kpi-lbl">Average</div><div class="kpi-val neu">${fmt(APP.income.length?total/APP.income.length:0)}</div><div class="kpi-tag">Per entry</div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Income Ledger</div></div><button class="tb-btn" onclick="exportXLS('income')">⬇ Export XLS</button></div>
+      <div class="panel-head"><div><div class="panel-title">Income Ledger</div></div><a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--green);border-color:var(--green-mid)">🔒 Unlock Full Version</a></div>
       <div class="panel-body np"><div class="tbl-wrap"><table>
         <thead><tr><th>Date</th><th>Invoice #</th><th>Category</th><th>Description</th><th>Client</th><th>TIN</th><th>Notes</th><th style="text-align:right">Amount</th><th></th></tr></thead>
         <tbody>${renderIncomeRows()}</tbody>
@@ -910,16 +1181,22 @@ function renderIncome() {
     </div>`;
 }
 
+function updateDemoBars(){
+  ['income','expenses','receivables','payables'].forEach(t=>{
+    const el=document.getElementById('demoBar'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(el) el.innerHTML = demoLimitBar(t);
+  });
+}
 function renderIncomeRows() {
   if(!APP.income.length) return `<tr><td colspan="9"><div class="empty"><div class="empty-icon">📈</div><div class="empty-title">No income entries yet</div></div></td></tr>`;
   return APP.income.map(e=>`<tr>
-    <td class="td-muted">${fmtD(e.date)}</td><td class="td-muted">${e.invoice||'—'}</td>
-    <td><span class="cat-tag ${getCatClass(e.category)}">${e.category}</span></td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.description}</td>
-    <td>${e.client||'—'}</td><td class="td-muted">${e.tin||'—'}</td>
-    <td class="td-muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notes||'—'}</td>
-    <td class="td-num td-pos">+${fmt(e.amount)}</td>
-    <td><div class="td-actions">
+    <td data-label="Date" class="td-muted">${fmtD(e.date)}</td><td data-label="Invoice" class="td-muted">${e.invoice||'—'}</td>
+    <td data-label="Category"><span class="cat-tag ${getCatClass(e.category)}">${e.category}</span></td>
+    <td data-label="Description" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.description}</td>
+    <td data-label="Client">${e.client||'—'}</td><td data-label="TIN" class="td-muted">${e.tin||'—'}</td>
+    <td data-label="Notes" class="td-muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notes||'—'}</td>
+    <td data-label="Amount" class="td-num td-pos">+${fmt(e.amount)}</td>
+    <td class="td-actions"><div class="td-actions">
       <button class="act-btn edit" onclick="openIncomeModal(${e.id})">Edit</button>
       <button class="act-btn danger" onclick="deleteEntry('income',${e.id})">Del</button>
     </div></td>
@@ -958,7 +1235,7 @@ function saveIncome(id) {
     address:document.getElementById('mAddr').value.trim(),invoice:document.getElementById('mInvoice').value.trim(),
     notes:document.getElementById('mNotes').value.trim()};
   if(id){APP.income[APP.income.findIndex(e=>e.id===id)]=entry;toast('Income updated!');}
-  else{APP.income.unshift(entry);toast('✓ Income posted!');}
+  else{if(!demoCheck('income'))return;APP.income.unshift(entry);demoIncrement('income');toast('✓ Income posted!');}
   closeModal();renderIncome();
 }
 
@@ -975,7 +1252,7 @@ function deleteEntry(type,id) {
    ═══════════════════════════════════════════════════ */
 function renderExpenses() {
   const total=APP.expenses.reduce((s,e)=>s+e.amount,0);
-  setTopbar('Expenses',`${APP.expenses.length} entries`,`<button class="tb-btn primary" onclick="openExpenseModal(null)">+ New Expense Entry</button>`);
+  setTopbar('Expenses',`${APP.expenses.length} entries`,`<button class='tb-btn primary' onclick='if(DEMO_COUNTS.expenses>=DEMO_LIMIT){showDemoGate("expenses")}else{openExpenseModal(null)}'>+ New Expense Entry</button>`);
   document.getElementById('pageContent').innerHTML=`
     <div class="kpi-row kpi-row-3">
       <div class="kpi"><div class="kpi-accent" style="background:var(--red)"></div><div class="kpi-lbl">Total Expenses</div><div class="kpi-val neg">${fmt(total)}</div><div class="kpi-tag">All recorded expenses</div></div>
@@ -983,8 +1260,8 @@ function renderExpenses() {
       <div class="kpi"><div class="kpi-accent" style="background:var(--red-mid)"></div><div class="kpi-lbl">Average</div><div class="kpi-val neu">${fmt(APP.expenses.length?total/APP.expenses.length:0)}</div><div class="kpi-tag">Per entry</div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Expense Ledger</div></div><button class="tb-btn" onclick="exportXLS('expenses')">⬇ Export XLS</button></div>
-      <div class="panel-body np"><div class="tbl-wrap"><table>
+      <div class="panel-head"><div><div class="panel-title">Expense Ledger</div></div><a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--green);border-color:var(--green-mid)">🔒 Unlock Full Version</a></div>
+      <div class="panel-body np"><div style="padding:10px 18px 0"><div id="demoBarExpenses"></div></div><div class="tbl-wrap"><table class="mobile-card-table">
         <thead><tr><th>Date</th><th>OR/Invoice #</th><th>Category</th><th>Description</th><th>Vendor</th><th>TIN</th><th>Notes</th><th style="text-align:right">Amount</th><th></th></tr></thead>
         <tbody>${renderExpenseRows()}</tbody>
       </table></div></div>
@@ -994,13 +1271,13 @@ function renderExpenses() {
 function renderExpenseRows() {
   if(!APP.expenses.length) return `<tr><td colspan="9"><div class="empty"><div class="empty-icon">📉</div><div class="empty-title">No expense entries yet</div></div></td></tr>`;
   return APP.expenses.map(e=>`<tr>
-    <td class="td-muted">${fmtD(e.date)}</td><td class="td-muted">${e.invoice||'—'}</td>
-    <td><span class="cat-tag ${getCatClass(e.category)}">${e.category}</span></td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.description}</td>
-    <td>${e.client||'—'}</td><td class="td-muted">${e.tin||'—'}</td>
-    <td class="td-muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notes||'—'}</td>
-    <td class="td-num td-neg">-${fmt(e.amount)}</td>
-    <td><div class="td-actions">
+    <td data-label="Date" class="td-muted">${fmtD(e.date)}</td><td data-label="Invoice" class="td-muted">${e.invoice||'—'}</td>
+    <td data-label="Category"><span class="cat-tag ${getCatClass(e.category)}">${e.category}</span></td>
+    <td data-label="Description" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.description}</td>
+    <td data-label="Vendor">${e.client||'—'}</td><td data-label="TIN" class="td-muted">${e.tin||'—'}</td>
+    <td data-label="Notes" class="td-muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.notes||'—'}</td>
+    <td data-label="Amount" class="td-num td-neg">-${fmt(e.amount)}</td>
+    <td class="td-actions"><div class="td-actions">
       <button class="act-btn edit" onclick="openExpenseModal(${e.id})">Edit</button>
       <button class="act-btn danger" onclick="deleteEntry('expenses',${e.id})">Del</button>
     </div></td>
@@ -1030,16 +1307,23 @@ function openExpenseModal(id) {
      <button class="btn-submit" onclick="saveExpense(${id||'null'})">${id?'Update':'Post Expense'}</button>`);
 }
 
+function setCostType(isCogs) {
+  const op=document.getElementById('ctOpex'), cg=document.getElementById('ctCogs');
+  if(op) op.className='type-btn'+(isCogs?'':' on-expense');
+  if(cg) cg.className='type-btn'+(isCogs?' on-payable':'');
+}
 function saveExpense(id) {
   const date=document.getElementById('mDate').value,cat=document.getElementById('mCat').value,
     desc=document.getElementById('mDesc').value.trim(),amt=parseFloat(document.getElementById('mAmt').value);
   if(!date||!desc||isNaN(amt)||amt<=0){toast('Please fill all required fields.',true);return;}
-  const entry={id:id||nextId(APP.expenses),date,category:cat,description:desc,amount:amt,
+  const cgBtn=document.getElementById('ctCogs');
+  const isCogs=cgBtn?cgBtn.classList.contains('on-payable'):false;
+  const entry={id:id||nextId(APP.expenses),date,category:cat,description:desc,amount:amt,isCogs,
     client:document.getElementById('mClient').value.trim(),tin:document.getElementById('mTin').value.trim(),
     address:document.getElementById('mAddr').value.trim(),invoice:document.getElementById('mInvoice').value.trim(),
     notes:document.getElementById('mNotes').value.trim()};
   if(id){APP.expenses[APP.expenses.findIndex(e=>e.id===id)]=entry;toast('Expense updated!');}
-  else{APP.expenses.unshift(entry);toast('✓ Expense posted!');}
+  else{if(!demoCheck('expenses'))return;APP.expenses.unshift(entry);demoIncrement('expenses');toast('✓ Expense posted!');}
   closeModal();renderExpenses();
 }
 
@@ -1050,7 +1334,7 @@ function renderReceivables() {
   const total=APP.receivables.reduce((s,r)=>s+r.amount,0);
   const collected=APP.receivables.reduce((s,r)=>s+r.paid,0);
   const overdue=APP.receivables.filter(r=>r.status==='overdue'||(r.installments||[]).some(i=>i.status==='missed')).length;
-  setTopbar('Receivables',`${APP.receivables.length} accounts`,`<button class="tb-btn primary" onclick="openReceivableModal(null)">+ New Receivable</button>`);
+  setTopbar('Receivables',`${APP.receivables.length} accounts`,`<button class='tb-btn primary' onclick='if(DEMO_COUNTS.receivables>=DEMO_LIMIT){showDemoGate("receivables")}else{openReceivableModal(null)}'>+ New Receivable</button>`);
 
   document.getElementById('pageContent').innerHTML=`
     <div class="kpi-row kpi-row-4">
@@ -1060,9 +1344,9 @@ function renderReceivables() {
       <div class="kpi"><div class="kpi-accent" style="background:var(--red)"></div><div class="kpi-lbl">Alerts</div><div class="kpi-val ${overdue>0?'neg':'neu'}">${overdue}</div><div class="kpi-tag">Overdue / missed</div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Receivables Register</div><div class="panel-sub">Click "Expand" on scheduled receivables to see installments</div></div><button class="tb-btn" onclick="exportXLS('receivables')">⬇ Export XLS</button></div>
+      <div class="panel-head"><div><div class="panel-title">Receivables Register</div><div class="panel-sub">Click "Expand" on scheduled receivables to see installments</div></div><a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--green);border-color:var(--green-mid)">🔒 Unlock Full Version</a></div>
       <div class="panel-body np"><div class="tbl-wrap">
-        <table><thead><tr><th>Billing Ref</th><th>Type</th><th>Client</th><th>Description</th><th>Expected / End</th><th>Total</th><th>Collected</th><th>Outstanding</th><th>Status</th><th></th></tr></thead>
+        <table class="mobile-card-table"><thead><tr><th>Billing Ref</th><th>Type</th><th>Client</th><th>Description</th><th>Expected / End</th><th>Total</th><th>Collected</th><th>Outstanding</th><th>Status</th><th></th></tr></thead>
         <tbody id="recTbody">${buildRecRows()}</tbody></table>
       </div></div>
     </div>`;
@@ -1226,7 +1510,7 @@ function saveReceivable(id) {
   if(type==='one-time'&&isOverdue(entry.expectedDate)&&entry.status==='pending') entry.status='overdue';
 
   if(id){APP.receivables[APP.receivables.findIndex(r=>r.id===id)]=entry;toast('Receivable updated!');}
-  else{APP.receivables.unshift(entry);toast('✓ Receivable added!');}
+  else{if(!demoCheck('receivables'))return;APP.receivables.unshift(entry);demoIncrement('receivables');toast('✓ Receivable added!');}
   closeModal();runSchedulingEngine();updateBadges();renderReceivables();
 }
 
@@ -1335,7 +1619,7 @@ function renderPayables() {
   const paid=APP.payables.reduce((s,p)=>s+p.paid,0);
   const overdue=APP.payables.filter(p=>p.status==='overdue').length;
   const unfilled=APP.payables.filter(p=>p.status==='unfilled').length;
-  setTopbar('Payables',`${APP.payables.length} accounts`,`<button class="tb-btn primary" onclick="openPayableModal(null)">+ New Payable</button>`);
+  setTopbar('Payables',`${APP.payables.length} accounts`,`<button class='tb-btn primary' onclick='if(DEMO_COUNTS.payables>=DEMO_LIMIT){showDemoGate("payables")}else{openPayableModal(null)}'>+ New Payable</button>`);
 
   document.getElementById('pageContent').innerHTML=`
     <div class="kpi-row kpi-row-4">
@@ -1345,7 +1629,7 @@ function renderPayables() {
       <div class="kpi"><div class="kpi-accent" style="background:var(--amber)"></div><div class="kpi-lbl">Needs Input</div><div class="kpi-val ${unfilled>0?'warn':'neu'}">${unfilled}</div><div class="kpi-tag">Amount not entered</div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Payables Register</div><div class="panel-sub">Variable payables showing "unfilled" need an amount entered for this cycle</div></div><button class="tb-btn" onclick="exportXLS('payables')">⬇ Export XLS</button></div>
+      <div class="panel-head"><div><div class="panel-title">Payables Register</div><div class="panel-sub">Variable payables showing "unfilled" need an amount entered for this cycle</div></div><a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--green);border-color:var(--green-mid)">🔒 Unlock Full Version</a></div>
       <div class="panel-body np"><div class="tbl-wrap"><table>
         <thead><tr><th>Billing Ref</th><th>Type</th><th>Vendor</th><th>Description</th><th>Scheduled</th><th>Due Date</th><th>Amount</th><th>Paid</th><th>Status</th><th></th></tr></thead>
         <tbody>
@@ -1562,7 +1846,7 @@ function savePayable(id) {
   if(type==='recurring-not-fixed'&&amt===0) entry.status='unfilled';
   if(entry.status==='pending'&&isOverdue(dueDate)) entry.status='overdue';
   if(id){APP.payables[APP.payables.findIndex(p=>p.id===id)]=entry;toast('Payable updated!');}
-  else{APP.payables.unshift(entry);toast('✓ Payable added!');}
+  else{if(!demoCheck('payables'))return;APP.payables.unshift(entry);demoIncrement('payables');toast('✓ Payable added!');}
   closeModal();runSchedulingEngine();updateBadges();renderPayables();
 }
 
@@ -1570,78 +1854,504 @@ function savePayable(id) {
    REPORTS
    ═══════════════════════════════════════════════════ */
 function renderReports() {
-  setTopbar('Reports & Exports','Generate and download reports');
-  const totalIncome=APP.income.reduce((s,e)=>s+e.amount,0);
-  const totalExpenses=APP.expenses.reduce((s,e)=>s+e.amount,0);
-  const netProfit=totalIncome-totalExpenses;
-  const totalPayable=APP.payables.reduce((s,p)=>s+(p.amount-p.paid),0);
-
-  document.getElementById('pageContent').innerHTML=`
-    <div class="kpi-row kpi-row-4">
-      <div class="kpi"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-lbl">Net Profit</div><div class="kpi-val ${netProfit>=0?'pos':'neg'}">${fmt(netProfit)}</div><div class="kpi-tag">Income - Expenses</div></div>
-      <div class="kpi"><div class="kpi-accent" style="background:var(--green-mid)"></div><div class="kpi-lbl">Total Income</div><div class="kpi-val pos">${fmt(totalIncome)}</div><div class="kpi-tag">${APP.income.length} entries</div></div>
-      <div class="kpi"><div class="kpi-accent" style="background:var(--red-mid)"></div><div class="kpi-lbl">Total Expenses</div><div class="kpi-val neg">${fmt(totalExpenses)}</div><div class="kpi-tag">${APP.expenses.length} entries</div></div>
-      <div class="kpi"><div class="kpi-accent" style="background:var(--amber)"></div><div class="kpi-lbl">Net Payable</div><div class="kpi-val warn">${fmt(totalPayable)}</div><div class="kpi-tag">Outstanding obligations</div></div>
-    </div>
-    <div class="grid-2" style="margin-bottom:16px">
-      <div class="panel">
-        <div class="panel-head"><div><div class="panel-title">📊 XLS Exports</div><div class="panel-sub">Download raw data as Excel files</div></div></div>
-        <div class="panel-body">
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${[{label:'Income Register',sub:`${APP.income.length} entries`,key:'income'},{label:'Expense Register',sub:`${APP.expenses.length} entries`,key:'expenses'},{label:'Receivables Register',sub:`${APP.receivables.length} accounts + installments`,key:'receivables'},{label:'Payables Schedule',sub:`${APP.payables.length} accounts`,key:'payables'}]
-            .map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--bg)">
-              <div><div style="font-size:12.5px;font-weight:700">${r.label}</div><div style="font-size:11px;color:var(--ink3)">${r.sub}</div></div>
-              <button class="tb-btn" onclick="exportXLS('${r.key}')">⬇ XLS</button>
-            </div>`).join('')}
-          </div>
-        </div>
+  setTopbar('Reports & Exports','Demo mode — exports disabled');
+  const reports = [
+    { key:'pl',        icon:'📊', title:'Income Statement (P&L)',          sub:'Revenue, expenses, and net income by period', pdf:true,  xls:false },
+    { key:'sales',     icon:'📈', title:'Sales Register',                   sub:'Itemized income with subtotals by category',  pdf:true,  xls:true  },
+    { key:'expense',   icon:'📉', title:'Expense Register',                 sub:'Itemized expenses with subtotals by category',pdf:true,  xls:true  },
+    { key:'araging',   icon:'🔵', title:'Accounts Receivable Aging',        sub:'Current, 30, 60, 90+ days overdue buckets',   pdf:true,  xls:false },
+    { key:'apaging',   icon:'🟠', title:'Accounts Payable Aging',           sub:'Payables by aging bucket and due status',     pdf:true,  xls:false },
+    { key:'collection',icon:'🧾', title:'Receivables Collection Report',    sub:'Per client, installment schedule, payment history', pdf:true, xls:true },
+    { key:'paysch',    icon:'💳', title:'Payables Schedule Report',         sub:'Per vendor, due dates, outstanding balances', pdf:true,  xls:true  },
+  ];
+  document.getElementById('pageContent').innerHTML = `
+    <div style="background:var(--green-bg);border:1.5px solid var(--green-mid);border-radius:14px;padding:24px 28px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--green);margin-bottom:4px">Reports are available in the full version</div>
+        <div style="font-size:13px;color:var(--ink2);line-height:1.6">The full version includes 7 proper accounting reports — Income Statement, AR/AP Aging, Sales Register, Expense Register, Receivables Collection, and Payables Schedule — all exportable as PDF or XLS.</div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><div><div class="panel-title">📄 PDF Reports</div><div class="panel-sub">Print-ready formatted reports</div></div></div>
-        <div class="panel-body">
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${['Monthly P&L Summary','Cash Flow Report','Receivables Aging Report','Payables Schedule Report']
-            .map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--bg)">
-              <div style="font-size:12.5px;font-weight:700">${r}</div>
-              <button class="tb-btn" onclick="exportPDF('${r}')">⬇ PDF</button>
-            </div>`).join('')}
-          </div>
-        </div>
-      </div>
+      <a href="https://apricity-solutions.netlify.app" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:var(--green);color:#fff;padding:12px 22px;border-radius:10px;font-weight:700;font-size:13.5px;text-decoration:none;flex-shrink:0;box-shadow:0 4px 16px rgba(26,122,90,.25)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Book a Free Demo
+      </a>
     </div>
     <div class="panel">
-      <div class="panel-head"><div><div class="panel-title">Profit & Loss Preview</div></div><button class="tb-btn" onclick="exportPDF('Monthly P&L Summary')">⬇ Export PDF</button></div>
-      <div class="panel-body">${buildPLHtml()}</div>
+      <div class="panel-head"><div><div class="panel-title">Financial Reports</div><div class="panel-sub">Preview only — exports unlocked in full version</div></div></div>
+      <div class="panel-body np">
+        ${reports.map(r=>`
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 18px;border-bottom:1px solid var(--surface2);flex-wrap:wrap">
+            <div style="font-size:22px;flex-shrink:0">${r.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:1px">${r.title}</div>
+              <div style="font-size:11px;color:var(--ink3)">${r.sub}</div>
+            </div>
+            <div class="rpt-controls" style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+              <input type="date" class="f-inp" id="rFrom_${r.key}" style="width:128px;padding:6px 8px;font-size:11.5px" title="From date"/>
+              <span style="font-size:11px;color:var(--ink3)">to</span>
+              <input type="date" class="f-inp" id="rTo_${r.key}" style="width:128px;padding:6px 8px;font-size:11.5px" title="To date"/>
+              ${r.pdf?`<a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--ink3);border-color:var(--rule);cursor:not-allowed" title="Unlock in full version">🔒 PDF</a>`:''}
+              ${r.xls?`<a href="https://apricity-solutions.netlify.app" target="_blank" class="tb-btn" style="color:var(--ink3);border-color:var(--rule);cursor:not-allowed" title="Unlock in full version">🔒 XLS</a>`:''}
+            </div>
+          </div>`).join('')}
+      </div>
     </div>`;
 }
 
-function buildPLHtml() {
-  const totalIncome=APP.income.reduce((s,e)=>s+e.amount,0);
-  const totalExpenses=APP.expenses.reduce((s,e)=>s+e.amount,0);
-  const netProfit=totalIncome-totalExpenses;
-  const margin=totalIncome>0?((netProfit/totalIncome)*100).toFixed(1):0;
-  const incByCat={};APP.income.forEach(e=>{incByCat[e.category]=(incByCat[e.category]||0)+e.amount;});
-  const expByCat={};APP.expenses.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
-  return `
-    <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--ink);margin-bottom:4px">${APP.company.name}</div>
-    <div style="font-size:12px;color:var(--ink3);margin-bottom:18px">P&L Statement · Generated ${new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})}</div>
-    <div class="grid-2">
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--green-mid)">INCOME</div>
-        ${Object.entries(incByCat).map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--surface2);font-size:12.5px"><span>${c}</span><span style="font-weight:600">${fmt(v)}</span></div>`).join('')}
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;color:var(--green);margin-top:4px"><span>Total Income</span><span>${fmt(totalIncome)}</span></div>
-      </div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--red-mid)">EXPENSES</div>
-        ${Object.entries(expByCat).map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--surface2);font-size:12.5px"><span>${c}</span><span style="font-weight:600">${fmt(v)}</span></div>`).join('')}
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;color:var(--red);margin-top:4px"><span>Total Expenses</span><span>${fmt(totalExpenses)}</span></div>
-      </div>
-    </div>
-    <div style="margin-top:14px;padding:14px 16px;background:${netProfit>=0?'var(--green-bg)':'var(--red-bg)'};border:1px solid ${netProfit>=0?'var(--green-mid)':'var(--red-mid)'};border-radius:10px;display:flex;align-items:center;justify-content:space-between">
-      <div><div style="font-size:13px;font-weight:700;color:${netProfit>=0?'var(--green)':'var(--red)'}">${netProfit>=0?'Net Profit':'Net Loss'}</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">Profit margin: ${margin}%</div></div>
-      <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:600;color:${netProfit>=0?'var(--green)':'var(--red)'}">${fmt(netProfit)}</div>
-    </div>`;
+function runReport(key, format) {
+  const from = (document.getElementById('rFrom_'+key)||{}).value||'';
+  const to   = (document.getElementById('rTo_'+key)||{}).value||'';
+  const period = periodLabel(from, to);
+  if(format==='pdf'){
+    ({pl:pdfPL,sales:pdfSales,expense:pdfExpense,araging:pdfARAging,apaging:pdfAPAging,collection:pdfCollection,paysch:pdfPaySchedule})[key]?.(from,to,period);
+  } else {
+    ({sales:xlsSales,expense:xlsExpense,collection:xlsCollection,paysch:xlsPaySchedule})[key]?.(from,to);
+  }
 }
+
+/* ─── REPORT HELPERS ─── */
+function filterByDate(arr,from,to){
+  const f=from?new Date(from+'T00:00:00'):null, t=to?new Date(to+'T00:00:00'):null;
+  return arr.filter(e=>{
+    const d=new Date((e.date||e.expectedDate||e.dueDate||'2000-01-01')+'T00:00:00');
+    if(f&&d<f)return false; if(t&&d>t)return false; return true;
+  });
+}
+function daysBetween(dateStr){
+  const d=new Date(dateStr+'T00:00:00'), t=new Date(); t.setHours(0,0,0,0);
+  return Math.floor((t-d)/86400000);
+}
+function periodLabel(from,to){
+  if(!from&&!to) return 'All Periods';
+  if(from&&to) return 'For the period '+fmtD(from)+' to '+fmtD(to);
+  if(from) return 'From '+fmtD(from);
+  return 'As of '+fmtD(to);
+}
+function reportHeader(reportTitle,periodStr){
+  const logoHtml=APP.company.logo?'<img src="'+APP.company.logo+'" alt="logo" style="width:100%;height:100%;object-fit:cover;border-radius:10px"/>'
+    :'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
+  return '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
+    +'<div style="display:flex;align-items:center;gap:12px">'
+    +'<div style="width:48px;height:48px;border-radius:10px;background:#1a7a5a;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff">'+logoHtml+'</div>'
+    +'<div><div style="font-size:17px;font-weight:700;color:#1c1a18">'+APP.company.name+'</div><div style="font-size:11px;color:#8a8278;text-transform:uppercase;letter-spacing:.08em">'+reportTitle+'</div></div>'
+    +'</div>'
+    +'<div style="text-align:right;font-size:10.5px;color:#8a8278;line-height:1.8">'+new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})+'<br>Philippine Peso (&#8369;)</div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:#1c1a18;font-weight:600;margin-top:6px;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid #1a7a5a">'+periodStr+'</div>';
+}
+function rptCSS(){
+  return '*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Plus Jakarta Sans",sans-serif;color:#1c1a18;font-size:12.5px;line-height:1.6}'
+    +'.page{max-width:780px;margin:0 auto;padding:36px}'
+    +'.sec{margin-bottom:18px}'
+    +'.sec-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#8a8278;padding:5px 0;border-bottom:1px solid #ece8e2;margin-bottom:0}'
+    +'.al{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f4f1ec;font-size:12px}'
+    +'.al.ind{padding-left:16px;color:#4a4540}'
+    +'.al.sub{font-weight:700;border-top:1px solid #ece8e2;border-bottom:2px solid #ece8e2;margin-top:2px}'
+    +'.al.tot{font-weight:700;font-size:13px;border-top:2px solid #1c1a18;border-bottom:3px double #1c1a18;padding:6px 0;margin-top:4px}'
+    +'.al.npos{background:#edf7f2;padding:8px 10px;border-radius:6px;font-weight:700;font-size:13px;border:1px solid #c8e9d9;margin-top:8px}'
+    +'.al.nneg{background:#fef2f2;padding:8px 10px;border-radius:6px;font-weight:700;font-size:13px;border:1px solid #fca5a5;margin-top:8px}'
+    +'.amt{font-variant-numeric:tabular-nums;white-space:nowrap}'
+    +'.pos{color:#1a7a5a}.neg{color:#b91c1c}.warn{color:#b45309}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11.5px}'
+    +'thead th{background:#faf8f5;font-size:8px;text-transform:uppercase;letter-spacing:.12em;color:#8a8278;font-weight:700;padding:6px 8px;text-align:left;border-bottom:2px solid #ece8e2}'
+    +'th.r,td.r{text-align:right;font-variant-numeric:tabular-nums}'
+    +'tbody td{padding:6px 8px;border-bottom:1px solid #f4f1ec;vertical-align:top}'
+    +'tbody tr:last-child td{border-bottom:none}'
+    +'tr.sub td{font-weight:700;border-top:1px solid #ece8e2;background:#faf8f5}'
+    +'tr.grand td{font-weight:700;border-top:2px solid #1c1a18;font-size:12.5px}'
+    +'tr.grp td{background:#f4f1ec;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#4a4540;padding:4px 8px}'
+    +'tr.inst td{background:#f8fbff;font-size:10.5px;color:#4a4540;padding:4px 8px 4px 18px}'
+    +'.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}'
+    +'.bpaid{background:#edf7f2;color:#1a7a5a}.bovrd{background:#fef2f2;color:#b91c1c}'
+    +'.bpend{background:#fef3e2;color:#b45309}.bpart{background:#eff6ff;color:#2563eb}'
+    +'.bmiss{background:#fef2f2;color:#b91c1c}'
+    +'.agrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}'
+    +'.abox{padding:10px;border:1px solid #ece8e2;border-radius:8px;text-align:center}'
+    +'.albl{font-size:8.5px;text-transform:uppercase;letter-spacing:.1em;color:#8a8278;margin-bottom:3px}'
+    +'.aval{font-size:16px;font-weight:700}'
+    +'.rft{margin-top:28px;padding-top:8px;border-top:1px solid #ece8e2;font-size:9px;color:#8a8278;display:flex;justify-content:space-between}'
+    +'@media print{.page{padding:20px}@page{margin:.45in}}';
+}
+/* ─── PDF PREVIEW MODAL ─── */
+function printReport(bodyHtml, reportTitle){
+  // Build full report HTML with footer
+  const fullHtml = '<div class="page">'
+    + bodyHtml
+    + '<div class="rft"><span>'+APP.company.name+'</span><span>Viridian Tracker v3.1</span>'
+    + '<span>'+new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'})+'</span></div>'
+    + '</div>';
+
+  // Remove existing preview if any
+  const existing = document.getElementById('__pdfPreviewOverlay');
+  if(existing) existing.remove();
+
+  // Build the preview overlay
+  const overlay = document.createElement('div');
+  overlay.id = '__pdfPreviewOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(10,18,14,.85);display:flex;flex-direction:column;overflow:hidden;';
+
+  overlay.innerHTML = ''
+    // Top bar
+    + '<div style="height:56px;background:#1c1a18;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0">'
+    + '<div style="flex:1;font-family:sans-serif;font-size:13px;font-weight:600;color:#fff">Report Preview</div>'
+    + '<button id="__pdfDlBtn" style="display:flex;align-items:center;gap:7px;background:#1a7a5a;border:none;border-radius:8px;color:#fff;font-family:sans-serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer" onclick="downloadPdfFromPreview()">⬇ Download PDF</button>'
+    + '<button onclick="closePdfPreview()" style="width:36px;height:36px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>'
+    + '</div>'
+    // Scrollable preview area
+    + '<div style="flex:1;overflow-y:auto;padding:24px 16px;display:flex;justify-content:center">'
+    + '<div id="__pdfContent" style="background:#fff;width:100%;max-width:820px;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.4);overflow:hidden">'
+    + '<div style="padding:36px">'
+    + fullHtml
+    + '</div></div></div>';
+
+  document.body.appendChild(overlay);
+
+  // Inject report CSS into the preview
+  const existingStyle = document.getElementById('__rptPreviewStyle');
+  if(existingStyle) existingStyle.remove();
+  const style = document.createElement('style');
+  style.id = '__rptPreviewStyle';
+  style.textContent = '#__pdfContent{' + rptCSS() + '}';
+  document.head.appendChild(style);
+
+  // Store title for download
+  overlay.dataset.title = reportTitle || 'Report';
+}
+
+function closePdfPreview(){
+  const o=document.getElementById('__pdfPreviewOverlay'); if(o)o.remove();
+  const s=document.getElementById('__rptPreviewStyle'); if(s)s.remove();
+}
+
+async function downloadPdfFromPreview(){
+  const btn = document.getElementById('__pdfDlBtn');
+  const content = document.getElementById('__pdfContent');
+  const overlay = document.getElementById('__pdfPreviewOverlay');
+  if(!content||!btn) return;
+
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '⏳ Generating…';
+  btn.disabled = true;
+
+  try {
+    // Use html2canvas to capture the rendered report
+    const canvas = await html2canvas(content, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      windowWidth: 900
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const usableW = pageW - margin * 2;
+
+    // Calculate image dimensions maintaining aspect ratio
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    const ratio = imgH / imgW;
+    const pdfImgW = usableW;
+    const pdfImgH = pdfImgW * ratio;
+
+    // Paginate if content is taller than one page
+    const usableH = pageH - margin * 2;
+    let yPos = 0;
+    let pageCount = 0;
+
+    while(yPos < pdfImgH) {
+      if(pageCount > 0) pdf.addPage();
+      // Clip the portion of the image for this page
+      const srcY = Math.round((yPos / pdfImgH) * imgH);
+      const srcH = Math.round((usableH / pdfImgH) * imgH);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = imgW;
+      pageCanvas.height = Math.min(srcH, imgH - srcY);
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, srcY, imgW, pageCanvas.height, 0, 0, imgW, pageCanvas.height);
+      const pageImgData = pageCanvas.toDataURL('image/png');
+      const pageImgH = (pageCanvas.height / imgW) * pdfImgW;
+      pdf.addImage(pageImgData, 'PNG', margin, margin, pdfImgW, pageImgH);
+      yPos += usableH;
+      pageCount++;
+    }
+
+    const filename = APP.company.name.replace(/\s+/g,'_')+'_'+(overlay.dataset.title||'Report').replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
+    pdf.save(filename);
+    toast('✓ PDF downloaded: '+filename);
+  } catch(err) {
+    console.error('PDF generation error:', err);
+    toast('PDF generation failed. Try a smaller date range.', true);
+  }
+
+  btn.innerHTML = originalText;
+  btn.disabled = false;
+}
+
+/* ─── PDF: Income Statement ─── */
+function pdfPL(from,to,period){
+  const inc=filterByDate(APP.income,from,to);
+  const exp=filterByDate(APP.expenses,from,to);
+  const isProd=APP.company.businessType==='product';
+  const totalRev=inc.reduce((s,e)=>s+e.amount,0);
+  const cogs=isProd?exp.filter(e=>e.isCogs).reduce((s,e)=>s+e.amount,0):0;
+  const gproft=totalRev-cogs;
+  const opExp=isProd?exp.filter(e=>!e.isCogs):exp;
+  const totalOpExp=opExp.reduce((s,e)=>s+e.amount,0);
+  const netInc=totalRev-cogs-totalOpExp;
+  const nPos=netInc>=0;
+  const margin=totalRev>0?((netInc/totalRev)*100).toFixed(1):'0.0';
+  const revByCat={};inc.forEach(e=>{revByCat[e.category]=(revByCat[e.category]||0)+e.amount;});
+  const expByCat={};opExp.forEach(e=>{expByCat[e.category]=(expByCat[e.category]||0)+e.amount;});
+  const cogsByCat={};if(isProd)exp.filter(e=>e.isCogs).forEach(e=>{cogsByCat[e.category]=(cogsByCat[e.category]||0)+e.amount;});
+
+  let h=reportHeader('Income Statement',period);
+  h+='<div class="sec"><div class="sec-title">Revenue</div>';
+  Object.entries(revByCat).forEach(([c,v])=>{ h+='<div class="al ind"><span>'+c+'</span><span class="amt pos">'+fmt(v)+'</span></div>'; });
+  h+='<div class="al sub"><span>Total Revenue</span><span class="amt pos">'+fmt(totalRev)+'</span></div></div>';
+  if(isProd){
+    h+='<div class="sec"><div class="sec-title">Cost of Goods Sold</div>';
+    Object.entries(cogsByCat).forEach(([c,v])=>{ h+='<div class="al ind"><span>'+c+'</span><span class="amt neg">('+fmt(v)+')</span></div>'; });
+    h+='<div class="al sub"><span>Total COGS</span><span class="amt neg">('+fmt(cogs)+')</span></div></div>';
+    h+='<div class="al tot"><span>Gross Profit</span><span class="amt '+(gproft>=0?'pos':'neg')+'">'+fmt(gproft)+'</span></div>';
+  }
+  h+='<div class="sec" style="margin-top:14px"><div class="sec-title">Operating Expenses</div>';
+  Object.entries(expByCat).forEach(([c,v])=>{ h+='<div class="al ind"><span>'+c+'</span><span class="amt neg">('+fmt(v)+')</span></div>'; });
+  h+='<div class="al sub"><span>Total Operating Expenses</span><span class="amt neg">('+fmt(totalOpExp)+')</span></div></div>';
+  h+='<div class="al '+(nPos?'npos':'nneg')+'"><span>'+(nPos?'Net Income':'Net Loss')+'</span><span class="amt '+(nPos?'pos':'neg')+'">'+fmt(netInc)+'</span></div>';
+  h+='<div style="font-size:10.5px;color:#8a8278;margin-top:8px;text-align:right">Net Profit Margin: '+margin+'%</div>';
+  printReport(h,'Income_Statement');
+}
+
+/* ─── PDF: Sales Register ─── */
+function pdfSales(from,to,period){
+  const inc=filterByDate(APP.income,from,to);
+  const byCat={};inc.forEach(e=>{if(!byCat[e.category])byCat[e.category]=[];byCat[e.category].push(e);});
+  const grand=inc.reduce((s,e)=>s+e.amount,0);
+  let h=reportHeader('Sales Register',period);
+  h+='<table><thead><tr><th>Date</th><th>Invoice #</th><th>Description</th><th>Client</th><th>TIN</th><th class="r">Amount (&#8369;)</th></tr></thead><tbody>';
+  Object.entries(byCat).forEach(([cat,entries])=>{
+    const ct=entries.reduce((s,e)=>s+e.amount,0);
+    h+='<tr class="grp"><td colspan="6">'+cat+'</td></tr>';
+    entries.forEach(e=>{ h+='<tr><td>'+fmtD(e.date)+'</td><td>'+(e.invoice||'—')+'</td><td>'+(e.description||'')+'</td><td>'+(e.client||'—')+'</td><td>'+(e.tin||'—')+'</td><td class="r pos">'+fmt(e.amount)+'</td></tr>'; });
+    h+='<tr class="sub"><td colspan="5">Subtotal — '+cat+'</td><td class="r">'+fmt(ct)+'</td></tr>';
+  });
+  h+='<tr class="grand"><td colspan="5">TOTAL SALES</td><td class="r pos">'+fmt(grand)+'</td></tr></tbody></table>';
+  h+='<div style="font-size:10.5px;color:#8a8278;margin-top:4px">'+inc.length+' transaction(s)</div>';
+  printReport(h,'Sales_Register');
+}
+
+/* ─── PDF: Expense Register ─── */
+function pdfExpense(from,to,period){
+  const exp=filterByDate(APP.expenses,from,to);
+  const isProd=APP.company.businessType==='product';
+  const byCat={};exp.forEach(e=>{if(!byCat[e.category])byCat[e.category]=[];byCat[e.category].push(e);});
+  const grand=exp.reduce((s,e)=>s+e.amount,0);
+  const cols=isProd?6:5;
+  let h=reportHeader('Expense Register',period);
+  h+='<table><thead><tr><th>Date</th><th>OR/Invoice</th><th>Description</th><th>Vendor</th>'+(isProd?'<th>Type</th>':'')+'<th class="r">Amount (&#8369;)</th></tr></thead><tbody>';
+  Object.entries(byCat).forEach(([cat,entries])=>{
+    const ct=entries.reduce((s,e)=>s+e.amount,0);
+    h+='<tr class="grp"><td colspan="'+cols+'">'+cat+'</td></tr>';
+    entries.forEach(e=>{ h+='<tr><td>'+fmtD(e.date)+'</td><td>'+(e.invoice||'—')+'</td><td>'+(e.description||'')+'</td><td>'+(e.client||'—')+'</td>'+(isProd?'<td><span class="badge '+(e.isCogs?'bovrd':'bpend')+'">'+(e.isCogs?'COGS':'OpEx')+'</span></td>':'')+'<td class="r neg">('+fmt(e.amount)+')</td></tr>'; });
+    h+='<tr class="sub"><td colspan="'+(cols-1)+'">Subtotal — '+cat+'</td><td class="r">('+fmt(ct)+')</td></tr>';
+  });
+  h+='<tr class="grand"><td colspan="'+(cols-1)+'">TOTAL EXPENSES</td><td class="r neg">('+fmt(grand)+')</td></tr></tbody></table>';
+  h+='<div style="font-size:10.5px;color:#8a8278;margin-top:4px">'+exp.length+' transaction(s)</div>';
+  printReport(h,'Expense_Register');
+}
+
+/* ─── PDF: AR Aging ─── */
+function pdfARAging(from,to,period){
+  const today=new Date();today.setHours(0,0,0,0);
+  const open=APP.receivables.filter(r=>r.status!=='paid');
+  const B={c:[],d30:[],d60:[],d90:[],d90p:[]}, T={c:0,d30:0,d60:0,d90:0,d90p:0};
+  open.forEach(r=>{
+    const ref=r.type==='scheduled'?(r.installments||[]).find(i=>i.status==='missed'||i.status==='pending')?.dueDate||r.expectedDate:r.expectedDate;
+    const days=daysBetween(ref||new Date().toISOString().slice(0,10));
+    const owed=r.amount-r.paid;
+    const en={...r,daysOverdue:days,owed};
+    if(days<=0){B.c.push(en);T.c+=owed;}
+    else if(days<=30){B.d30.push(en);T.d30+=owed;}
+    else if(days<=60){B.d60.push(en);T.d60+=owed;}
+    else if(days<=90){B.d90.push(en);T.d90+=owed;}
+    else{B.d90p.push(en);T.d90p+=owed;}
+  });
+  const grand=Object.values(T).reduce((s,v)=>s+v,0);
+  let h=reportHeader('Accounts Receivable Aging','As of '+new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'}));
+  h+='<div class="agrid">'
+    +'<div class="abox"><div class="albl">Current</div><div class="aval pos">'+fmt(T.c)+'</div><div style="font-size:9px;color:#8a8278">Not yet due</div></div>'
+    +'<div class="abox"><div class="albl">1–30 Days</div><div class="aval warn">'+fmt(T.d30)+'</div><div style="font-size:9px;color:#8a8278">'+B.d30.length+' account(s)</div></div>'
+    +'<div class="abox"><div class="albl">31–60 Days</div><div class="aval warn">'+fmt(T.d60)+'</div><div style="font-size:9px;color:#8a8278">'+B.d60.length+' account(s)</div></div>'
+    +'<div class="abox"><div class="albl">61–90 Days</div><div class="aval neg">'+fmt(T.d90)+'</div><div style="font-size:9px;color:#8a8278">'+B.d90.length+' account(s)</div></div>'
+    +'<div class="abox" style="border-color:#fca5a5"><div class="albl">90+ Days</div><div class="aval neg">'+fmt(T.d90p)+'</div><div style="font-size:9px;color:#8a8278">'+B.d90p.length+' account(s)</div></div>'
+    +'</div>';
+  h+='<table><thead><tr><th>Client</th><th>Description</th><th>Ref</th><th>Expected</th><th class="r">Total</th><th class="r">Collected</th><th class="r">Outstanding</th><th>Days</th><th>Status</th></tr></thead><tbody>';
+  [['c','Current — Not Yet Due'],['d30','1–30 Days Overdue'],['d60','31–60 Days Overdue'],['d90','61–90 Days Overdue'],['d90p','Over 90 Days Overdue']].forEach(([k,lbl])=>{
+    if(!B[k].length)return;
+    h+='<tr class="grp"><td colspan="9">'+lbl+' — '+fmt(T[k])+'</td></tr>';
+    B[k].forEach(r=>{
+      const bc=r.status==='overdue'?'bovrd':r.status==='partial'?'bpart':'bpend';
+      h+='<tr><td><strong>'+r.client+'</strong>'+(r.address?'<br><small style="color:#8a8278">'+r.address+'</small>':'')+'</td><td>'+r.description+'</td><td>'+r.invoice+'</td><td>'+fmtD(r.expectedDate)+'</td><td class="r">'+fmt(r.amount)+'</td><td class="r pos">'+fmt(r.paid)+'</td><td class="r '+(r.daysOverdue>0?'neg':'warn')+'">'+fmt(r.owed)+'</td><td>'+(r.daysOverdue>0?r.daysOverdue+' days':'Current')+'</td><td><span class="badge '+bc+'">'+r.status+'</span></td></tr>';
+    });
+    h+='<tr class="sub"><td colspan="6">Subtotal</td><td class="r">'+fmt(T[k])+'</td><td colspan="2"></td></tr>';
+  });
+  h+='<tr class="grand"><td colspan="6">TOTAL OUTSTANDING RECEIVABLES</td><td class="r neg">'+fmt(grand)+'</td><td colspan="2"></td></tr></tbody></table>';
+  printReport(h,'AR_Aging');
+}
+
+/* ─── PDF: AP Aging ─── */
+function pdfAPAging(from,to,period){
+  const open=APP.payables.filter(p=>p.status!=='paid');
+  const B={c:[],d30:[],d60:[],d90:[],d90p:[]}, T={c:0,d30:0,d60:0,d90:0,d90p:0};
+  open.forEach(p=>{
+    const days=p.dueDate?daysBetween(p.dueDate):0;
+    const owed=p.amount-p.paid;
+    const en={...p,daysOverdue:days,owed};
+    if(days<=0){B.c.push(en);T.c+=owed;}
+    else if(days<=30){B.d30.push(en);T.d30+=owed;}
+    else if(days<=60){B.d60.push(en);T.d60+=owed;}
+    else if(days<=90){B.d90.push(en);T.d90+=owed;}
+    else{B.d90p.push(en);T.d90p+=owed;}
+  });
+  const grand=Object.values(T).reduce((s,v)=>s+v,0);
+  let h=reportHeader('Accounts Payable Aging','As of '+new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'}));
+  h+='<div class="agrid">'
+    +'<div class="abox"><div class="albl">Current</div><div class="aval pos">'+fmt(T.c)+'</div><div style="font-size:9px;color:#8a8278">Not yet due</div></div>'
+    +'<div class="abox"><div class="albl">1–30 Days</div><div class="aval warn">'+fmt(T.d30)+'</div><div style="font-size:9px;color:#8a8278">'+B.d30.length+' payable(s)</div></div>'
+    +'<div class="abox"><div class="albl">31–60 Days</div><div class="aval warn">'+fmt(T.d60)+'</div><div style="font-size:9px;color:#8a8278">'+B.d60.length+' payable(s)</div></div>'
+    +'<div class="abox"><div class="albl">61–90 Days</div><div class="aval neg">'+fmt(T.d90)+'</div><div style="font-size:9px;color:#8a8278">'+B.d90.length+' payable(s)</div></div>'
+    +'<div class="abox" style="border-color:#fca5a5"><div class="albl">90+ Days</div><div class="aval neg">'+fmt(T.d90p)+'</div><div style="font-size:9px;color:#8a8278">'+B.d90p.length+' payable(s)</div></div>'
+    +'</div>';
+  h+='<table><thead><tr><th>Vendor</th><th>Description</th><th>Ref</th><th>Type</th><th>Due Date</th><th class="r">Amount</th><th class="r">Paid</th><th class="r">Outstanding</th><th>Days</th></tr></thead><tbody>';
+  [['c','Current — Not Yet Due'],['d30','1–30 Days Overdue'],['d60','31–60 Days Overdue'],['d90','61–90 Days Overdue'],['d90p','Over 90 Days Overdue']].forEach(([k,lbl])=>{
+    if(!B[k].length)return;
+    h+='<tr class="grp"><td colspan="9">'+lbl+' — '+fmt(T[k])+'</td></tr>';
+    B[k].forEach(p=>{
+      const tl=p.type==='recurring-fixed'?'Fixed Recur':p.type==='recurring-not-fixed'?'Variable Recur':'One-time';
+      h+='<tr><td><strong>'+p.vendor+'</strong></td><td>'+p.description+'</td><td>'+p.billingRef+'</td><td>'+tl+'</td><td class="'+(p.daysOverdue>0?'neg':'')+'">'+fmtD(p.dueDate)+'</td><td class="r">'+(p.status==='unfilled'?'—':fmt(p.amount))+'</td><td class="r pos">'+fmt(p.paid)+'</td><td class="r '+(p.daysOverdue>0?'neg':'warn')+'">'+fmt(p.owed)+'</td><td>'+(p.daysOverdue>0?p.daysOverdue+' days':'Current')+'</td></tr>';
+    });
+    h+='<tr class="sub"><td colspan="7">Subtotal</td><td class="r">'+fmt(T[k])+'</td><td></td></tr>';
+  });
+  h+='<tr class="grand"><td colspan="7">TOTAL OUTSTANDING PAYABLES</td><td class="r neg">'+fmt(grand)+'</td><td></td></tr></tbody></table>';
+  printReport(h,'AP_Aging');
+}
+
+/* ─── PDF: Receivables Collection ─── */
+function pdfCollection(from,to,period){
+  const recs=filterByDate(APP.receivables,from,to);
+  let h=reportHeader('Receivables Collection Report',period);
+  recs.forEach(r=>{
+    const owed=r.amount-r.paid, pct=r.amount>0?Math.round((r.paid/r.amount)*100):0;
+    const bc=r.status==='paid'?'bpaid':r.status==='overdue'?'bovrd':r.status==='partial'?'bpart':'bpend';
+    h+='<div class="sec"><div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid #ece8e2;margin-bottom:8px">'
+      +'<div><div style="font-size:13px;font-weight:700">'+r.client+'</div>'
+      +(r.address?'<div style="font-size:10.5px;color:#8a8278">'+r.address+'</div>':'')
+      +(r.tin?'<div style="font-size:10.5px;color:#8a8278">TIN: '+r.tin+'</div>':'')
+      +'<div style="font-size:11px;color:#4a4540;margin-top:2px">'+r.description+'</div>'
+      +'<div style="font-size:10.5px;color:#8a8278">Ref: '+r.invoice+' | Type: '+(r.type==='scheduled'?'Scheduled':'One-time')+'</div></div>'
+      +'<div style="text-align:right"><span class="badge '+bc+'">'+r.status+'</span><br>'
+      +'<div style="font-size:11px;color:#8a8278;margin-top:4px">Contract: '+fmt(r.amount)+'</div>'
+      +'<div style="font-size:11px;color:#1a7a5a">Collected: '+fmt(r.paid)+' ('+pct+'%)</div>'
+      +'<div style="font-size:11px;color:#b45309">Outstanding: '+fmt(owed)+'</div></div></div>';
+    if(r.type==='scheduled'&&r.installments&&r.installments.length){
+      h+='<table><thead><tr><th>#</th><th>Due Date</th><th class="r">Amount</th><th class="r">Paid</th><th class="r">Outstanding</th><th>Status</th><th>Payment Date</th></tr></thead><tbody>';
+      r.installments.forEach(i=>{
+        const ib=i.status==='paid'?'bpaid':i.status==='missed'?'bmiss':i.status==='partial'?'bpart':'bpend';
+        h+='<tr><td>'+i.index+'</td><td>'+fmtD(i.dueDate)+'</td><td class="r">'+fmt(i.amount)+'</td><td class="r pos">'+fmt(i.paid)+'</td><td class="r '+(i.status==='missed'?'neg':'warn')+'">'+fmt(i.amount-i.paid)+'</td><td><span class="badge '+ib+'">'+i.status+'</span></td><td>'+(i.paymentDate?fmtD(i.paymentDate):'—')+'</td></tr>';
+      });
+      const it=r.installments.reduce((s,i)=>s+i.amount,0), ip=r.installments.reduce((s,i)=>s+i.paid,0);
+      h+='<tr class="sub"><td colspan="2">Total</td><td class="r">'+fmt(it)+'</td><td class="r pos">'+fmt(ip)+'</td><td class="r warn">'+fmt(it-ip)+'</td><td colspan="2"></td></tr>';
+      h+='</tbody></table>';
+    } else {
+      h+='<div style="font-size:11px;color:#8a8278;padding:6px 0">One-time | Expected: '+fmtD(r.expectedDate)+'</div>';
+      if(r.notes) h+='<div style="font-size:11px;color:#4a4540;font-style:italic;padding:4px 0">Notes: '+r.notes+'</div>';
+    }
+    h+='</div>';
+  });
+  if(!recs.length) h+='<div style="padding:24px;text-align:center;color:#8a8278">No receivables for the selected period.</div>';
+  const tc=recs.reduce((s,r)=>s+r.amount,0), tp=recs.reduce((s,r)=>s+r.paid,0);
+  h+='<div class="al tot"><span>TOTAL CONTRACT VALUE</span><span class="amt">'+fmt(tc)+'</span></div>';
+  h+='<div class="al sub"><span>Total Collected</span><span class="amt pos">'+fmt(tp)+'</span></div>';
+  h+='<div class="al '+(tc-tp>0?'nneg':'npos')+'"><span>Total Outstanding</span><span class="amt '+(tc-tp>0?'neg':'pos')+'">'+fmt(tc-tp)+'</span></div>';
+  printReport(h,'Receivables_Collection');
+}
+
+/* ─── PDF: Payables Schedule ─── */
+function pdfPaySchedule(from,to,period){
+  const pays=filterByDate(APP.payables,from,to);
+  const G={'recurring-fixed':[],'recurring-not-fixed':[],'one-time':[]};
+  pays.forEach(p=>{if(G[p.type])G[p.type].push(p);});
+  const TL={'recurring-fixed':'Fixed Recurring Payables','recurring-not-fixed':'Variable Recurring Payables','one-time':'One-time Payables'};
+  let h=reportHeader('Payables Schedule Report',period);
+  Object.entries(G).forEach(([type,items])=>{
+    if(!items.length)return;
+    const gt=items.reduce((s,p)=>s+(p.amount-p.paid),0);
+    const isRec=type!=='one-time';
+    h+='<div class="sec"><div class="sec-title">'+TL[type]+' — Outstanding: '+fmt(gt)+'</div>';
+    h+='<table><thead><tr><th>Vendor</th><th>Description</th><th>Ref</th><th>Scheduled</th><th>Due Date</th>'+(isRec?'<th>Freq.</th>':'')+'<th class="r">Amount</th><th class="r">Paid</th><th class="r">Outstanding</th><th>Status</th></tr></thead><tbody>';
+    items.forEach(p=>{
+      const bc=p.status==='paid'?'bpaid':p.status==='overdue'?'bovrd':'bpend';
+      const owed=p.amount-p.paid, cols=isRec?10:9;
+      h+='<tr><td><strong>'+p.vendor+'</strong>'+(p.address?'<br><small style="color:#8a8278">'+p.address+'</small>':'')+'</td><td>'+p.description+'</td><td>'+p.billingRef+'</td><td>'+fmtD(p.scheduledDate)+'</td><td class="'+(isOverdue(p.dueDate)&&p.status!=='paid'?'neg':'')+'">'+fmtD(p.dueDate)+'</td>'+(isRec?'<td>'+(p.frequency||'—')+'</td>':'')+'<td class="r">'+(p.status==='unfilled'?'<em style="color:#8a8278">Unfilled</em>':fmt(p.amount))+'</td><td class="r pos">'+fmt(p.paid)+'</td><td class="r '+(owed>0&&p.status!=='paid'?'neg':'pos')+'">'+fmt(owed)+'</td><td><span class="badge '+bc+'">'+p.status+'</span></td></tr>';
+      if(p.notes) h+='<tr class="inst"><td colspan="'+cols+'" style="font-style:italic;color:#8a8278">Notes: '+p.notes+'</td></tr>';
+    });
+    const ta=items.reduce((s,p)=>s+p.amount,0), tp2=items.reduce((s,p)=>s+p.paid,0);
+    h+='<tr class="sub"><td colspan="'+(isRec?6:5)+'">Subtotal</td><td class="r">'+fmt(ta)+'</td><td class="r pos">'+fmt(tp2)+'</td><td class="r neg">'+fmt(ta-tp2)+'</td><td></td></tr></tbody></table></div>';
+  });
+  const ta=pays.reduce((s,p)=>s+p.amount,0), tp=pays.reduce((s,p)=>s+p.paid,0);
+  h+='<div class="al tot"><span>TOTAL PAYABLES</span><span class="amt">'+fmt(ta)+'</span></div>';
+  h+='<div class="al sub"><span>Total Paid</span><span class="amt pos">'+fmt(tp)+'</span></div>';
+  h+='<div class="al nneg"><span>Total Outstanding</span><span class="amt neg">'+fmt(ta-tp)+'</span></div>';
+  printReport(h,'Payables_Schedule');
+}
+
+/* ─── XLS builders ─── */
+function xlsSales(from,to){
+  const inc=filterByDate(APP.income,from,to);
+  const rows=[['Date','Invoice #','Category','Description','Client','TIN','Address','Notes','Amount (₱)'],...inc.map(e=>[e.date,e.invoice||'',e.category,e.description,e.client||'',e.tin||'',e.address||'',e.notes||'',e.amount]),[''],['Category','','Amount (₱)']];
+  const byCat={};inc.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+e.amount;});
+  Object.entries(byCat).forEach(([c,v])=>rows.push([c,'',v]));
+  rows.push(['TOTAL','',inc.reduce((s,e)=>s+e.amount,0)]);
+  buildXLS(rows,'Sales_Register','Sales Register');
+}
+function xlsExpense(from,to){
+  const exp=filterByDate(APP.expenses,from,to);
+  const isProd=APP.company.businessType==='product';
+  const rows=[['Date','OR/Invoice','Category','Description','Vendor','TIN','Address','Notes',isProd?'Type':'','Amount (₱)'],...exp.map(e=>[e.date,e.invoice||'',e.category,e.description,e.client||'',e.tin||'',e.address||'',e.notes||'',isProd?(e.isCogs?'COGS':'Operating'):'',e.amount])];
+  buildXLS(rows,'Expense_Register','Expense Register');
+}
+function xlsCollection(from,to){
+  const recs=filterByDate(APP.receivables,from,to);
+  const rows=[['Billing Ref','Type','Client','TIN','Address','Description','Total','Collected','Outstanding','Status','Expected Date','Schedule','Notes']];
+  recs.forEach(r=>{
+    rows.push([r.invoice,r.type,r.client,r.tin||'',r.address||'',r.description,r.amount,r.paid,r.amount-r.paid,r.status,r.expectedDate,r.schedule||'',r.notes||'']);
+    if(r.installments&&r.installments.length){
+      rows.push(['','','Inst #','Due Date','Amount','Paid','Outstanding','Status','Payment Date','','','','']);
+      r.installments.forEach(i=>rows.push(['','','#'+i.index,i.dueDate,i.amount,i.paid,i.amount-i.paid,i.status,i.paymentDate||'','','','','']));
+    }
+  });
+  buildXLS(rows,'Receivables_Collection','Collection Report');
+}
+function xlsPaySchedule(from,to){
+  const pays=filterByDate(APP.payables,from,to);
+  const rows=[['Billing Ref','Type','Vendor','TIN','Address','Description','Amount','Paid','Outstanding','Status','Scheduled','Due Date','Frequency','Notes'],...pays.map(p=>[p.billingRef,p.type,p.vendor,p.tin||'',p.address||'',p.description,p.amount,p.paid,p.amount-p.paid,p.status,p.scheduledDate,p.dueDate,p.frequency||'',p.notes||''])];
+  buildXLS(rows,'Payables_Schedule','Payables Schedule');
+}
+function buildXLS(rows,filename,sheetName){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=rows[0].map(h=>({wch:Math.max(String(h||'').length+4,12)}));
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,APP.company.name.replace(/\s+/g,'_')+'_'+filename+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('✓ '+filename+' exported!');
+}
+
 
 /* ═══════════════════════════════════════════════════
    ADMIN
@@ -1656,6 +2366,14 @@ function renderAdmin() {
           <div class="panel-head"><div class="panel-title">🏢 Company Settings</div></div>
           <div class="panel-body">
             <div class="f-group" style="margin-bottom:12px"><div class="f-lbl">Company / Client Name</div><input type="text" class="f-inp" id="adminCompName" value="${APP.company.name}"/></div>
+            <div class="f-group" style="margin-bottom:12px">
+              <div class="f-lbl">Business Type</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <button type="button" class="type-btn ${APP.company.businessType!=='product'?'on-income':''}" id="btService" onclick="setBusinessType('service')">Service-based<br><span style="font-size:9.5px;font-weight:400">No COGS</span></button>
+                <button type="button" class="type-btn ${APP.company.businessType==='product'?'on-income':''}" id="btProduct" onclick="setBusinessType('product')">Product-based<br><span style="font-size:9.5px;font-weight:400">Includes COGS</span></button>
+              </div>
+              <div class="f-hint">Affects P&amp;L report structure and expense entry form.</div>
+            </div>
             <div class="f-group" style="margin-bottom:16px">
               <div class="f-lbl">Company Logo</div>
               <div style="display:flex;align-items:center;gap:14px">
@@ -1700,6 +2418,13 @@ function saveCompanySettings() {
   APP.company.name=document.getElementById('adminCompName').value.trim()||APP.company.name;
   document.getElementById('sbCompanyName').textContent=APP.company.name.split(' ')[0];
   toast('✓ Company settings saved!');
+}
+function setBusinessType(t) {
+  APP.company.businessType=t;
+  const bs=document.getElementById('btService'), bp=document.getElementById('btProduct');
+  if(bs) bs.className='type-btn'+(t==='service'?' on-income':'');
+  if(bp) bp.className='type-btn'+(t==='product'?' on-income':'');
+  toast('Business type set to: '+t+'. COGS field '+(t==='product'?'enabled':'disabled')+' on expense entries.');
 }
 function addCat(type) {
   const input=document.getElementById(type==='income'?'newIncCat':'newExpCat');
@@ -1773,167 +2498,10 @@ function exportXLS(type) {
   toast(`✓ ${filename} exported!`);
 }
 
-function exportPDF(reportName) {
-  // ── Pre-build all data in current scope ──
-  const totalIncome = APP.income.reduce((s,e)=>s+e.amount, 0);
-  const totalExpenses = APP.expenses.reduce((s,e)=>s+e.amount, 0);
-  const netProfit = totalIncome - totalExpenses;
-  const totalReceivable = APP.receivables.reduce((s,r)=>s+(r.amount-r.paid), 0);
-  const margin = totalIncome > 0 ? ((netProfit/totalIncome)*100).toFixed(1) : '0.0';
-  const dateStr = new Date().toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'});
-  const companyName = APP.company.name || 'Viridian';
-  const profitColor = netProfit >= 0 ? '#1a7a5a' : '#b91c1c';
-  const profitLabel = netProfit >= 0 ? 'Net Profit' : 'Net Loss';
-  const summaryBg = netProfit >= 0 ? '#edf7f2' : '#fef2f2';
-  const summaryBorder = netProfit >= 0 ? '#c8e9d9' : '#fca5a5';
-
-  const incByCat = {};
-  APP.income.forEach(e => { incByCat[e.category] = (incByCat[e.category]||0) + e.amount; });
-  const expByCat = {};
-  APP.expenses.forEach(e => { expByCat[e.category] = (expByCat[e.category]||0) + e.amount; });
-
-  const incRows = Object.entries(incByCat).map(([c,v]) =>
-    '<tr><td>'+c+'</td><td class="tr">'+fmt(v)+'</td><td class="tr">'+(totalIncome>0?((v/totalIncome)*100).toFixed(1):0)+'%</td></tr>'
-  ).join('') + '<tr class="tot"><td>TOTAL INCOME</td><td class="tr">'+fmt(totalIncome)+'</td><td class="tr">100%</td></tr>';
-
-  const expRows = Object.entries(expByCat).map(([c,v]) =>
-    '<tr><td>'+c+'</td><td class="tr">'+fmt(v)+'</td><td class="tr">'+(totalExpenses>0?((v/totalExpenses)*100).toFixed(1):0)+'%</td></tr>'
-  ).join('') + '<tr class="tot"><td>TOTAL EXPENSES</td><td class="tr">'+fmt(totalExpenses)+'</td><td class="tr">100%</td></tr>';
-
-  const recRows = APP.receivables.map(r => {
-    let h = '<tr><td>'+(r.invoice||'—')+'</td><td>'+(r.client||'')+'</td><td>'+(r.description||'')+'</td>'
-      +'<td class="tr">'+fmt(r.amount)+'</td><td class="tr">'+fmt(r.paid)+'</td>'
-      +'<td class="tr">'+fmt(r.amount-r.paid)+'</td><td>'+(r.status||'')+'</td></tr>';
-    if (r.installments && r.installments.length) {
-      r.installments.forEach(i => {
-        h += '<tr class="inst"><td colspan="2" style="padding-left:20px">\u2514 Inst. #'+i.index+'</td>'
-          +'<td>Due '+fmtD(i.dueDate)+'</td>'
-          +'<td class="tr">'+fmt(i.amount)+'</td><td class="tr">'+fmt(i.paid)+'</td>'
-          +'<td class="tr">'+fmt(i.amount-i.paid)+'</td><td>'+(i.status||'')+'</td></tr>';
-      });
-    }
-    return h;
-  }).join('');
-
-  const payRows = APP.payables.map(p =>
-    '<tr><td>'+(p.billingRef||'—')+'</td><td>'+(p.vendor||'')+'</td>'
-    +'<td>'+(p.type==='recurring-fixed'?'Fixed Recur':p.type==='recurring-not-fixed'?'Variable Recur':'One-time')+'</td>'
-    +'<td>'+(p.description||'')+'</td>'
-    +'<td class="tr">'+(p.status==='unfilled'?'—':fmt(p.amount))+'</td>'
-    +'<td>'+fmtD(p.dueDate)+'</td><td>'+(p.status||'')+'</td></tr>'
-  ).join('');
-
-  // ── Build the print overlay HTML ──
-  const css = [
-    '*{box-sizing:border-box;margin:0;padding:0}',
-    'body{font-family:"Plus Jakarta Sans",sans-serif;color:#1c1a18;font-size:12.5px;line-height:1.6}',
-    '.sheet{max-width:780px;margin:0 auto;padding:32px}',
-    '.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1a7a5a}',
-    '.hdr-left{display:flex;align-items:center;gap:12px}',
-    '.hdr-ico{width:38px;height:38px;background:#1a7a5a;border-radius:9px;display:flex;align-items:center;justify-content:center}',
-    '.hdr-ico svg{color:#fff}',
-    '.co{font-size:16px;font-weight:700;color:#1c1a18}',
-    '.rn{font-size:11px;color:#8a8278;margin-top:2px}',
-    '.meta{text-align:right;font-size:10.5px;color:#8a8278;line-height:1.8}',
-    '.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}',
-    '.kpi{padding:10px 12px;border:1px solid #ece8e2;border-radius:8px;text-align:center}',
-    '.kpi-l{font-size:8.5px;text-transform:uppercase;letter-spacing:.1em;color:#8a8278;margin-bottom:2px}',
-    '.kpi-v{font-size:17px;font-weight:700}',
-    '.pos{color:#1a7a5a}.neg{color:#b91c1c}.warn{color:#b45309}',
-    'h2{font-size:13px;font-weight:700;color:#1c1a18;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid #ece8e2;text-transform:uppercase;letter-spacing:.06em}',
-    'table{width:100%;border-collapse:collapse;margin-bottom:16px}',
-    'th{background:#faf8f5;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:#8a8278;font-weight:700;padding:6px 8px;text-align:left;border-bottom:1px solid #ece8e2}',
-    'td{padding:6px 8px;border-bottom:1px solid #f4f1ec;font-size:11px}',
-    '.tr{text-align:right;font-variant-numeric:tabular-nums}',
-    '.tot td{font-weight:700;border-top:2px solid #ece8e2;border-bottom:none;font-size:11.5px}',
-    '.inst td{background:#f8fbff;font-size:10px;color:#4a4540}',
-    '.summary{padding:12px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;background:'+summaryBg+';border:1px solid '+summaryBorder+'}',
-    '.sum-label{font-size:13px;font-weight:700;color:'+profitColor+'}',
-    '.sum-sub{font-size:10.5px;color:#8a8278;margin-top:2px}',
-    '.sum-val{font-size:26px;font-weight:700;color:'+profitColor+'}',
-    '.footer{margin-top:28px;padding-top:10px;border-top:1px solid #ece8e2;font-size:9px;color:#8a8278;text-align:center}',
-  ].join('');
-
-  const innerHtml = ''
-    +'<div class="sheet">'
-    +'<div class="hdr"><div class="hdr-left">'
-    +'<div class="hdr-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>'
-    +'<div><div class="co">'+companyName+'</div><div class="rn">'+reportName+'</div></div>'
-    +'</div><div class="meta">Generated: '+dateStr+'<br>Currency: Philippine Peso (&#8369;)</div></div>'
-
-    +'<div class="kpis">'
-    +'<div class="kpi"><div class="kpi-l">Total Income</div><div class="kpi-v pos">'+fmt(totalIncome)+'</div></div>'
-    +'<div class="kpi"><div class="kpi-l">Total Expenses</div><div class="kpi-v neg">'+fmt(totalExpenses)+'</div></div>'
-    +'<div class="kpi"><div class="kpi-l">'+profitLabel+'</div><div class="kpi-v" style="color:'+profitColor+'">'+fmt(netProfit)+'</div></div>'
-    +'<div class="kpi"><div class="kpi-l">Net Receivable</div><div class="kpi-v warn">'+fmt(totalReceivable)+'</div></div>'
-    +'</div>'
-
-    +'<h2>Income Breakdown</h2>'
-    +'<table><thead><tr><th>Category</th><th class="tr">Amount (&#8369;)</th><th class="tr">% of Total</th></tr></thead>'
-    +'<tbody>'+incRows+'</tbody></table>'
-
-    +'<h2>Expense Breakdown</h2>'
-    +'<table><thead><tr><th>Category</th><th class="tr">Amount (&#8369;)</th><th class="tr">% of Total</th></tr></thead>'
-    +'<tbody>'+expRows+'</tbody></table>'
-
-    +'<h2>Receivables</h2>'
-    +'<table><thead><tr><th>Ref</th><th>Client</th><th>Description</th><th class="tr">Total</th><th class="tr">Collected</th><th class="tr">Outstanding</th><th>Status</th></tr></thead>'
-    +'<tbody>'+recRows+'</tbody></table>'
-
-    +'<h2>Payables</h2>'
-    +'<table><thead><tr><th>Ref</th><th>Vendor</th><th>Type</th><th>Description</th><th class="tr">Amount</th><th>Due</th><th>Status</th></tr></thead>'
-    +'<tbody>'+payRows+'</tbody></table>'
-
-    +'<div class="summary">'
-    +'<div><div class="sum-label">'+profitLabel+'</div><div class="sum-sub">Profit margin: '+margin+'%</div></div>'
-    +'<div class="sum-val">'+fmt(netProfit)+'</div>'
-    +'</div>'
-
-    +'<div class="footer">'+companyName+' &nbsp;&middot;&nbsp; '+reportName+' &nbsp;&middot;&nbsp; '+dateStr+' &nbsp;&middot;&nbsp; Viridian v3.1</div>'
-    +'</div>';
-
-  // ── Inject overlay into current page, print, then remove ──
-  const existing = document.getElementById('__pdfOverlay');
-  if (existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = '__pdfOverlay';
-  overlay.innerHTML = innerHtml;
-
-  const style = document.createElement('style');
-  style.id = '__pdfStyle';
-  style.textContent = css
-    + '@media screen{'
-    + '#__pdfOverlay{display:none}'  // hidden on screen — only shows during print
-    + '}'
-    + '@media print{'
-    + 'body > *:not(#__pdfOverlay){display:none!important}'
-    + '#__pdfOverlay{display:block!important;position:static}'
-    + '@page{margin:.5in}'
-    + '}';
-
-  document.head.appendChild(style);
-  document.body.appendChild(overlay);
-
-  // Small delay so DOM paints, then print
-  setTimeout(function() {
-    window.print();
-    // Clean up after print dialog closes
-    setTimeout(function() {
-      const s = document.getElementById('__pdfStyle');
-      const o = document.getElementById('__pdfOverlay');
-      if (s) s.remove();
-      if (o) o.remove();
-    }, 1000);
-  }, 120);
-
-  toast('✓ Print dialog opening — choose "Save as PDF" to export.');
-}
-
 /* ═══════════════════════════════════════════════════
    INIT — auto-login for demo (remove when Firebase active)
    ═══════════════════════════════════════════════════ */
-setTimeout(()=>bootApp(), 80);
+bootApp(); // Demo: auto-start, no login needed
 </script>
 </body>
 </html>
